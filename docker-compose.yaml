@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  haproxy:
+    build: .
+    image: haproxytech/haproxy-alpine:2.0
+    ports:
+      - 8080:80
+      - 8443:443
+      - 5555:5555
+      - 8000:8000
+    volumes:
+      - ./haproxy.cfg:/etc/haproxy/haproxy.cfg
+      - ./lua:/etc/haproxy/lua
+    depends_on:
+      - minio
+  minio:
+    image: minio/minio
+    command: server /data
+    environment:
+      MINIO_ACCESS_KEY: AKIAIOSFODNN7EXAMPLE
+      MINIO_SECRET_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      MINIO_DOMAIN: min.io
+    ports:
+      - 9000:9000
+    volumes:
+      - minio-data:/data
+volumes:
+  minio-data:
