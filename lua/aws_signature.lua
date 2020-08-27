@@ -111,7 +111,7 @@ if core then
 
         local headers = {}
         for header, values in pairs(txn.http:req_get_headers()) do
-            headers[header] = values[0] -- table.concat(values, ",") doesn't work, values are zero-indexed :(
+            headers[header] = table.concat(values, ",", 0)
         end
 
         local payload = "" -- GET/HEAD has empty payload
