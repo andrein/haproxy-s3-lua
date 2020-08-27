@@ -92,11 +92,9 @@ if core then
 
         local method = txn.sf:method()
         if supported_methods[method] == nil then
-            txn:done()
-            -- TODO(andrein): txn:done() only supports the reply parameter in Haproxy 2.2+
---            txn:done{
---                status = 405,
---            }
+            if not pcall(function () txn:done{ status = 405} end) then
+                return -- txn:done() only supports the reply parameter in Haproxy 2.2+
+            end
             return
         end
 
