@@ -1,5 +1,27 @@
-local digest = require("openssl").digest
-local hmac = require("openssl").hmac
+local digest = require("openssl.digest")
+local hmac = require("openssl.hmac")
+
+function string:fromhex()
+    return (self:gsub('..', function (cc)
+        return string.char(tonumber(cc, 16))
+    end))
+end
+
+function string:tohex()
+    return (self:gsub('.', function (c)
+        return string.format('%02x', string.byte(c))
+    end))
+end
+
+function hmac_sha256(key, message)
+    local h = hmac.new(key, "SHA256")
+    return h:final(message)
+end
+
+function digest_sha256(message)
+    local d = digest.new("SHA256")
+    return d:final(message)
+end
 
 function canonicalRequest(method, uri, query_string, headers, signed_headers, payload, epoch)
     local hashed_payload = hashedPayload(payload)
@@ -46,7 +68,7 @@ function hashedPayload(payload)
     if payload == "" or payload == nil then
         return "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     end
-    return digest.digest("SHA256", payload)
+    return digest_sha256(payload):tohex()
 end
 
 function scope(epoch, region, service)
@@ -57,20 +79,20 @@ function stringToSign(scope, canonical_request, epoch)
     return "AWS4-HMAC-SHA256" .. "\n"
         .. os.date("!%Y%m%dT%H%M%SZ", epoch) .. "\n"
         .. scope .. "\n"
-        .. digest.digest("SHA256", canonical_request)
+        .. digest_sha256(canonical_request):tohex()
 end
 
 function signingKey(epoch, secret_key, region, service)
     local alg = "SHA256"
 
-    local date_key = hmac.hmac(alg, os.date("!%Y%m%d", epoch), "AWS4" .. secret_key, true)
-    local date_region_key = hmac.hmac(alg, region, date_key, true)
-    local date_region_service_key = hmac.hmac(alg, service, date_region_key, true)
-    return hmac.hmac(alg, "aws4_request", date_region_service_key, true)
+    local date_key = hmac_sha256("AWS4" .. secret_key, os.date("!%Y%m%d", epoch))
+    local date_region_key = hmac_sha256(date_key, region)
+    local date_region_service_key = hmac_sha256(date_region_key, service)
+    return hmac_sha256(date_region_service_key, "aws4_request")
 end
 
-function signature(string_to_sign, signing_key)
-    return hmac.hmac("SHA256", string_to_sign, signing_key)
+function signature(signing_key, string_to_sign)
+    return hmac_sha256(signing_key, string_to_sign):tohex()
 end
 
 function authorizationHeader(access_key, scope, signed_headers, signature)
@@ -123,7 +145,7 @@ if core then
         local scope = scope(epoch, region, service)
         local string_to_sign = stringToSign(scope, canonical_request, epoch)
         local signing_key = signingKey(epoch, secret_key, region, service)
-        local signature = signature(string_to_sign, signing_key)
+        local signature = signature(signing_key, string_to_sign)
         txn.http:req_add_header("Authorization", authorizationHeader(access_key, scope, signedHeaders(signed_headers), signature, epoch))
     end
 

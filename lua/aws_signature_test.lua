@@ -1,7 +1,16 @@
 local luaunit = require('luaunit')
 
 require('aws_signature')
-hex = require('openssl').hex
+
+function TestStringToHex()
+    local s = "test"
+    luaunit.assertEquals(s:tohex(), "74657374")
+end
+
+function TestStringFromHex()
+    local h = "74657374"
+    luaunit.assertEquals(h:fromhex(), "test")
+end
 
 -- https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html#example-signature-calculations
 
@@ -86,14 +95,14 @@ function TestSigningKey()
     local region = "us-east-1"
     local service = "iam"
 
-    local actual = hex(signingKey(epoch, key, region, service))
+    local actual = signingKey(epoch, key, region, service):tohex()
     local expected = "f4780e2d9f65fa895f9c67b32ce1baf0b0d8a43505a000a1a9e090d414db404d"
     luaunit.assertEquals(actual, expected)
 end
 
 -- TODO(andrein) remove dependency on signing_key
 function TestSignature()
-    local signing_key = hex("dbb893acc010964918f1fd433add87c70e8b0db6be30c1fbeafefa5ec6ba8378", false)
+    local signing_key = ("dbb893acc010964918f1fd433add87c70e8b0db6be30c1fbeafefa5ec6ba8378"):fromhex()
     local string_to_sign = [[
 AWS4-HMAC-SHA256
 20130524T000000Z
@@ -102,7 +111,7 @@ AWS4-HMAC-SHA256
 
     local expected = "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41"
 
-    luaunit.assertEquals(signature(string_to_sign, signing_key), expected)
+    luaunit.assertEquals(signature(signing_key, string_to_sign), expected)
 end
 
 function TestAuthorizationHeader()
